@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>گردونه شانس (نسخه بی‌نقص)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap');
+    :root {
+      --wheel-size: 320px;
+      --arrow-color: #c026d3;
+    }
+    body {
+      background: linear-gradient(135deg, #f5d0fe 0%, #c7d2fe 100%);
+      min-height: 100vh;
+      font-family: 'Vazirmatn', Tahoma, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+    .main-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 30px;
+        width: 100%;
+    }
+    .wheel-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .wheel-container {
+      position: relative;
+      width: var(--wheel-size);
+      height: var(--wheel-size);
+      margin: 45px auto 15px;
+    }
+    .arrow {
+      position: absolute; left: 50%; top: -15px; transform: translateX(-50%);
+      width: 0; height: 0; border-left: 18px solid transparent;
+      border-right: 18px solid transparent; border-top: 32px solid var(--arrow-color);
+      z-index: 10; filter: drop-shadow(0 4px 5px rgba(0,0,0,0.2));
+    }
+    .wheel {
+      width: 100%; height: 100%;
+      position: relative;
+      transition: transform 5s cubic-bezier(0.25, 0.1, 0.25, 1);
+      border-radius: 50%;
+      background: #ccc; /* Fallback */
+    }
+    .wheel-center-pin {
+        position: absolute; top: 50%; left: 50%;
+        width: 25px; height: 25px;
+        background: var(--arrow-color);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 11;
+        cursor: pointer;
+        border: 3px solid white;
+        box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+    .wheel-text {
+      position: absolute;
+      font-size: 0.9rem; font-weight: 700; color: #581c87;
+      background: rgba(255,255,255,0.8); padding: 5px 10px; border-radius: 5px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; white-space: nowrap;
+      pointer-events: none;
+      transform: translate(-50%, -50%); /* Center the text element */
+    }
+    .buttons {
+      display: flex; gap: 18px; margin: 22px 0 10px 0; justify-content: center;
+    }
+    .btn {
+      padding: 0.8rem 2.2rem; font-size: 1.1rem; border: none; border-radius: 2rem;
+      cursor: pointer; background: linear-gradient(90deg, #f472b6, #818cf8);
+      color: #fff; font-weight: bold; box-shadow: 0 2px 8px rgba(129, 140, 248, 0.33);
+      transition: background .2s, box-shadow .2s, transform .1s; font-family: 'Vazirmatn', sans-serif;
+    }
+    .btn:active { transform: scale(0.97);}
+    .btn[disabled] { opacity: 0.6; pointer-events: none; }
+    .result {
+      margin-top: 24px; font-size: 1.5rem; font-weight: bold; color: #a21caf;
+      min-height: 2.5rem; text-align: center; z-index: 5;
+    }
+    .prizes-editor {
+        width: 300px; display: flex; flex-direction: column; gap: 10px;
+        background: rgba(255,255,255,0.6); padding: 20px; border-radius: 1rem;
+        box-shadow: 0 4px 32px 0 rgba(217, 70, 239, 0.2);
+    }
+    .prizes-editor h3 {
+        margin: 0 0 5px 0; font-size: 1.25rem; color: #a21caf; text-align: center;
+    }
+    .prizes-editor textarea {
+      width: 100%; height: 200px; padding: 10px; font-size: 1rem;
+      border: 1.5px solid #f472b6; border-radius: 1rem;
+      outline: none; direction: rtl; box-sizing: border-box;
+      font-family: 'Vazirmatn', sans-serif; resize: vertical;
+    }
+    @media (max-width: 768px) {
+      .main-container { flex-direction: column; align-items: center; }
+    }
+    @media (max-width: 400px) {
+      :root { --wheel-size: 280px; }
+      .prizes-editor { width: 90vw; }
+    }
+  </style>
+</head>
+<body>
+  <div class="main-container">
+    <div class="wheel-section">
+      <div class="wheel-container">
+        <div class="arrow"></div>
+        <div class="wheel" id="wheel"></div>
+        <div class="wheel-center-pin" id="secret-trigger"></div>
+      </div>
+      <div class="buttons">
+        <button class="btn" id="spinBtn">بچرخون!</button>
+        <button class="btn" id="resetBtn">ریست</button>
+      </div>
+      <div class="result" id="result"></div>
+    </div>
+    <div class="prizes-editor">
+        <h3>لیست جایزه‌ها</h3>
+        <textarea id="prizesTextarea" placeholder="هر جایزه در یک خط..."></textarea>
+        <button class="btn" id="updateWheelBtn">به‌روزرسانی گردونه</button>
+    </div>
+  </div>
+
+  <script>
+    // --- DOM Elements ---
+    const wheel = document.getElementById("wheel");
+    const spinBtn = document.getElementById("spinBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const resultDiv = document.getElementById("result");
+    const secretTrigger = document.getElementById('secret-trigger');
+    const prizesTextarea = document.getElementById("prizesTextarea");
+    const updateWheelBtn = document.getElementById("updateWheelBtn");
+
+    // --- State Variables ---
+    let masterPrizes = [];
+    const colors = ["#f472b6", "#fde047", "#7dd3fc", "#a7f3d0", "#818cf8", "#fb7185", "#fbbf24", "#bfdbfe"];
+    let spinning = false;
+    let clickTimestamps = [];
+    let forcedPrizeIndex = null;
+
+    // --- Main Functions ---
+    function drawWheel() {
+        wheel.innerHTML = '';
+        const segmentCount = masterPrizes.length;
+        if (segmentCount === 0) {
+            spinBtn.disabled = true;
+            return;
+        }
+        spinBtn.disabled = false;
+        
+        const anglePerSegment = 360 / segmentCount;
+        let gradientParts = [];
+
+        const wheelRadius = wheel.offsetWidth / 2;
+        const textRadius = wheelRadius * 0.65;
+
+        for (let i = 0; i < segmentCount; i++) {
+            const startAngle = i * anglePerSegment;
+            const endAngle = startAngle + anglePerSegment;
+            gradientParts.push(`${colors[i % colors.length]} ${startAngle}deg ${endAngle}deg`);
+            
+            const textAngle = startAngle + anglePerSegment / 2;
+            const rad = textAngle * (Math.PI / 180);
+            
+            const x = wheelRadius + Math.cos(rad) * textRadius;
+            const y = wheelRadius + Math.sin(rad) * textRadius;
+
+            const span = document.createElement('span');
+            span.className = 'wheel-text';
+            span.textContent = masterPrizes[i];
+            span.style.left = `${x}px`;
+            span.style.top = `${y}px`;
+
+            let finalTransform = 'translate(-50%, -50%)';
+            if (textAngle > 90 && textAngle < 270) {
+                finalTransform += ' rotate(180deg)';
+            }
+            span.style.transform = finalTransform;
+            wheel.appendChild(span);
+        }
+        wheel.style.background = `conic-gradient(${gradientParts.join(', ')})`;
+    }
+    
+    // --- Spin Logic (Final, Robust Version) ---
+    function spinWheel() {
+        if (spinning || masterPrizes.length === 0) return;
+        
+        // Reset wheel to 0 before calculating new spin
+        wheel.style.transition = 'none';
+        wheel.style.transform = 'rotate(0deg)';
+        // Force browser to apply the style change before starting animation
+        void wheel.offsetWidth; 
+
+        spinning = true;
+        spinBtn.disabled = true;
+        resultDiv.innerHTML = "";
+
+        let winningSegmentIndex = (forcedPrizeIndex !== null) 
+            ? forcedPrizeIndex 
+            : Math.floor(Math.random() * masterPrizes.length);
+        
+        forcedPrizeIndex = null; // Reset after use
+
+        const winningPrize = masterPrizes[winningSegmentIndex];
+        const anglePerSegment = 360 / masterPrizes.length;
+        const centerOfWinner = (winningSegmentIndex * anglePerSegment) + (anglePerSegment / 2);
+        const randomCycles = 360 * (5 + Math.floor(Math.random() * 3));
+        
+        // The arrow is at the top (270 degrees).
+        // Rotate the wheel so the centerOfWinner lands at 270.
+        const targetRotation = randomCycles + 270 - centerOfWinner;
+        
+        wheel.style.transition = 'transform 5s cubic-bezier(0.25, 0.1, 0.25, 1)';
+        wheel.style.transform = `rotate(${targetRotation}deg)`;
+        
+        const onSpinEnd = () => {
+            spinning = false;
+            spinBtn.disabled = false;
+            resultDiv.innerHTML = "برنده: " + winningPrize;
+            
+            // Set final static rotation for visual consistency
+            wheel.style.transition = 'none';
+            const finalAngle = targetRotation % 360;
+            wheel.style.transform = `rotate(${finalAngle}deg)`;
+        };
+
+        // Use 'transitionend' event for guaranteed accuracy
+        wheel.addEventListener('transitionend', onSpinEnd, { once: true });
+    }
+
+    function resetApp() {
+        if (spinning) return;
+        resultDiv.innerHTML = "";
+        wheel.style.transition = 'none';
+        wheel.style.transform = 'rotate(0deg)';
+        drawWheel();
+    }
+
+    function updateFromTextarea() {
+        const newPrizes = prizesTextarea.value.split('\n').map(p => p.trim()).filter(p => p.length > 0);
+        if (newPrizes.length > 0) {
+            masterPrizes = newPrizes;
+            localStorage.setItem('spinningWheelPrizes', JSON.stringify(masterPrizes));
+            resetApp();
+        }
+    }
+
+    function loadPrizesFromStorage() {
+        const storedPrizes = localStorage.getItem('spinningWheelPrizes');
+        if (storedPrizes) {
+            masterPrizes = JSON.parse(storedPrizes);
+        } else {
+            // Default list if nothing is stored
+            masterPrizes = ["سفر رایگان", "کارت هدیه", "یک ماه اشتراک", "لپ‌تاپ", "ساعت هوشمند", "هیچ", "کد تخفیف ۷۰٪", "ایرباد"];
+        }
+        prizesTextarea.value = masterPrizes.join('\n');
+    }
+    
+    // --- Admin Panel Logic ---
+    secretTrigger.addEventListener('click', () => {
+        const now = Date.now();
+        clickTimestamps.push(now);
+        clickTimestamps = clickTimestamps.filter(ts => now - ts < 1000);
+        if (clickTimestamps.length >= 3) {
+            openAdminWindow();
+            clickTimestamps = [];
+        }
+    });
+
+    // Add keyboard shortcut for admin panel
+    document.addEventListener('keydown', (event) => {
+        const isX = event.key === 'X' || event.key === 'x' || event.keyCode === 88;
+        if (event.ctrlKey && event.shiftKey && isX) {
+            event.preventDefault(); // Stop any default browser action
+            openAdminWindow();
+        }
+    });
+    
+    function setForcedPrize(index) {
+        if (index >= 0 && index < masterPrizes.length) {
+            forcedPrizeIndex = index;
+        }س
+    }
+
+    function openAdminWindow() {
+        const adminWindow = window.open('', 'adminPanel', 'width=400,height=500,scrollbars=yes,resizable=yes');
+        if (adminWindow) {
+            let prizeOptionsHTML = '';
+            const currentPrizes = masterPrizes; 
+            currentPrizes.forEach((prize, index) => {
+                prizeOptionsHTML += `<button onclick="selectPrize(${index})">${index}: ${prize}</button>`;
+            });
+
+            adminWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="fa" dir="rtl">
+                <head>
+                    <title>پنل ادمین</title>
+                    <style>
+                        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap');
+                        body { font-family: 'Vazirmatn', sans-serif; padding: 20px; background-color: #f8fafc; text-align: center; }
+                        h2 { color: #a21caf; }
+                        #login, #control { display: flex; flex-direction: column; gap: 15px; max-width: 300px; margin: auto; }
+                        input, button { padding: 10px; font-size: 1rem; border-radius: 8px; border: 1px solid #ddd; font-family: 'Vazirmatn', sans-serif; }
+                        button { cursor: pointer; background-color: #818cf8; color: white; border: none; }
+                        #prize-list button { background-color: #f3e8ff; color: #581c87; text-align: right; }
+                    </style>
+                </head>
+                <body>
+                    <div id="login">
+                        <h2>ورود ادمین</h2>
+                        <input type="password" id="adminPass" placeholder="رمز عبور" />
+                        <button onclick="checkPass()">ورود</button>
+                    </div>
+                    <div id="control" style="display:none;">
+                        <h2>انتخاب برنده بعدی</h2>
+                        <div id="prize-list" style="display:flex; flex-direction:column; gap:8px;">
+                            ${prizeOptionsHTML}
+                        </div>
+                    </div>
+                    <script>
+                        function checkPass() {
+                            if (document.getElementById('adminPass').value === '1234') {
+                                document.getElementById('login').style.display = 'none';
+                                document.getElementById('control').style.display = 'flex';
+                            } else {
+                                alert('رمز اشتباه است!');
+                            }
+                        }
+                        function selectPrize(index) {
+                            if (window.opener && !window.opener.closed) {
+                                window.opener.setForcedPrize(index);
+                            } else {
+                                alert('پنجره اصلی پیدا نشد.');
+                            }
+                        }
+                    <\/script>
+                </body>
+                </html>
+            `);
+            adminWindow.document.close();
+        } else {
+            alert('لطفاً پاپ‌آپ‌ها را برای این سایت فعال کنید.');
+        }
+    }
+
+    // --- Initial Setup ---
+    spinBtn.addEventListener("click", spinWheel);
+    resetBtn.addEventListener("click", resetApp);
+    updateWheelBtn.addEventListener("click", updateFromTextarea);
+    
+    window.onload = () => {
+        loadPrizesFromStorage();
+        drawWheel();
+    };
+    window.onresize = drawWheel;
+  </script>
+</body>
+</html>
